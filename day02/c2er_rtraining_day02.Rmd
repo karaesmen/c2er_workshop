@@ -1,0 +1,628 @@
+---
+title: "R Training Day 02"
+author: "Abbas Rizvi"
+date: "6/17/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval=FALSE)
+options(tibble.print_min = 5)
+```
+
+# Introduction to tidyverse
+Welcome to day 02 of your R training!
+
+Today we will be learning about tidyverse. Tidyverse is a meta package that contains several complementary core packages that aim to make data science easier. 
+
+The core packages of the tidyverse are:  
+
+  1. dplyr (dplyr.tidyverse.org)  
+  2. tidyr (tidyr.tidyverse.org)  
+  3. readr (readr.tidyvesre.org)  
+  4. purrr (purrr.tidyverse.org)  
+  5. tibble (tibble.tidyverse.org)
+
+Today's tutorial will run through dplyr, tidyr, and readr. Specifically, using dplyr to transform, wrangle, and combine tables. Using tidyr to reshape tables, typically for preparation on visualizations or modeling (but definitely used in exploratory analysis). And lastly, we will learn how to import data using the readr package.
+
+tidyverse can be installed by invoking the following function:
+
+```{r}
+install.packages('tidyverse')
+```
+
+All of the dependencies associated with the 5 packages mentioned above are also installed, totaling 19 packages.
+
+Load tidyverse.
+```{r}
+library(tidyverse)
+```
+
+
+However, there are a few tidyverse syntax and classes that we need introduce before we delve into the data cleaning packages. 
+
+# Tibble
+In base R there is a class `data.frame()`. This class essentially is your data table format. There are rows and columns with data in each cell. In the tidyverse world, there is an "enhanced" data frame for printing and storing tabular data called the `tibble`. 
+
+Most likely, if you're using the tidyverse, you'll dealing with tibbles. 
+
+Tibbles can be constructed in two ways:  
+1. tibble - construct by column
+2. tribble - construct by row
+
+```{r, eval=TRUE}
+library(tidyverse)
+# by columns
+(
+    tibble_by_col <- 
+    tibble(x=1:3,
+       y=c("a", "b", "c"))
+)
+# by rows
+(
+tibble_by_row <- 
+    tribble(
+    ~x, ~y,
+     1, "a",
+     2, "b",
+     3, "c"
+)
+)
+```
+
+We can check they are tibbles by using the `class()` function.
+
+```{r, eval=TRUE}
+class(tibble_by_col)
+```
+
+You can convert a data.frame using the `as_tibble()` function.
+
+```{r, eval=TRUE}
+data(iris)
+as_tibble(iris)
+```
+
+# magrittr and the pipe
+
+The pipe operator (`%>%`) offers to make your code more readable. The `%>%` operator is native to the package magrittr but is adopted in the tidyverse and the operator is loaded when calling the tidyverse library. It structures data operations from left to right (as opposed to inside-out in base R). It avoids nested function calls. It minimizes the need to assign local variables and functions. And it makes it easy to add/remove steps in a sequence of operations. 
+
+**Basic usage**
+
+`x %>% f` is equivalent to `f(x)`  
+`x %>% f(y)` is equivalent to `f(x,y)`  
+`x %>% f %>% g %>% h` is equivalent to `h(g(f(x)))`  
+
+Disclaimer: "Equivalent" is technically not correct, because evaluation in R is non-standard and the left-hand side in these pipe operations is still evaluated before the right-hand side of an expression. 
+
+Another important aspect of the pipe is the `.` notation. The `.` is an arguemnt placeholder. For example:
+
+`x %>% f(y, .)` is equivalent to `f(y, x)`  
+
+and `x %>% f(y, z=.)` is equivalent to `f(y, z=x)`.
+
+And example of the pipe operator in use 
+
+```{r, eval=TRUE}
+iris %>% # data is called iris
+    filter(Species=="virginia") %>% # filter is a dplyr function 
+    head()  # head is a function that shows top 6 rows
+```
+
+
+# Example dataset 
+The dataset to be used is internal to the `tidyr` package.
+The two datasets are `who` and `populations`. Available R datasets can be loaded using the `data()` function.
+
+```{r, eval=TRUE}
+?data
+data(who)
+data(population)
+```
+
+Let's take a look at them
+
+```{r, eval=TRUE}
+glimpse(who)
+glimpse(population)
+```
+
+So the `who` dataset looks pretty messy. Luckily on the `tidyr` website they tell us a little bit about this dataset. https://tidyr.tidyverse.org/reference/who.html. 
+
+
+# Data transformation with dplyr
+
+dplyr is a package that is known for its grammar for data wrangling, that is, it is a rich and consistent set of verbs to help solve the most common problems. For me, dplyr is likely the package I use most on a day to day basis. 
+
+**Key functions**  
+
+1. Isolation/extract/manipulate date  
+2. Group and summarize cases
+3. Combine tables (joining/merging two or more tables)
+
+For this demonstration of dplyr we are going to use a slightly clean version of the `who` dataset. 
+
+```{r, eval=TRUE}
+who_clean <- read_csv("who_clean.csv")
+who_clean %>%
+    head()
+```
+## Summarizing by case
+With dplyr, users can summarize cases. For example, if we wanted to see how many observations in `who_clean` are in each `age` group. 
+
+```{r, eval=TRUE}
+who_clean %>%
+    count(age)
+```
+
+Or we could get the counts broken down by country.
+
+```{r, eval=TRUE}
+who_clean %>%
+    count(age, country)
+```
+
+Cases can be grouped together using the `group_by` function.
+
+```{r}
+who_clean %>%
+    group_by(country, gender, age) %>%
+    summarize(avg_tb_cases_genderxagexcountry=mean(count)) %>%
+    ungroup()
+```
+
+## Logical and Boolean Operators
+In R, often we have to use logicals and booleans to meet a criteria that we want to fulfill. 
+
+```{r}
+?base::Logic
+```
+
+| R syntax | English description |
+|----------|---------------------|
+| a & b    | and                 |
+| a \| b   | or                  |
+| xor(a,b) | exactly or          |
+| !a       | not                 |
+| is.na()  | is NA?              |
+| %in%     | value matching      |
+
+## Manipulating cases
+### Filter for rows
+Rows can be extracted that meet logical criteria
+
+For example, we can filter for just observations where the country is France.
+
+```{r, eval=TRUE}
+who_clean %>%
+    filter(country=="France")
+```
+
+
+Or we can filter for scenarios that the country is France OR the number of cases (count column) is greater than 100.
+```{r, eval=TRUE}
+who_clean %>%
+    filter(country=="France" | count > 100)
+```
+
+### Removing Duplicates
+The `distinct()` function can remove duplicate values by row. For example, if we wanted to see the unique countries and diagnosis. 
+
+```{r, eval=TRUE}
+who_clean %>%
+    distinct(country, diagnosis)
+```
+
+### Sampling
+One could randomly sample 10 observations from the dataset
+
+```{r, eval=TRUE}
+who_clean %>%
+    sample_n(size=10)
+```
+
+We could filter out 10% of the observations
+
+```{r, eval=TRUE}
+who_clean %>%
+    sample_frac(0.1)
+```
+
+We could tally the country counts (number of cases) and look at the top five.
+
+```{r, eval=TRUE}
+who_clean %>%
+    group_by(country) %>%
+    tally(count) %>%
+    top_n(5)
+```
+
+### Choose specific rows by position
+Users can use `slice()` to extract rows by position
+
+```{r, eval=TRUE}
+who_clean %>%
+    slice(3450:3455)
+```
+
+Furthermore, users can arrange by ascending (low to high) and descending (high to low) order.
+
+The `arrange` function is ascending by default.
+```{r, eval=TRUE}
+who_clean %>%
+    slice(3450:3455) %>%
+    arrange(count)
+```
+
+
+The sorting can be flipped using the `dplyr::desc()` helper function.
+```{r, eval=TRUE}
+who_clean %>%
+    slice(3450:3455) %>%
+    arrange(desc(count))
+```
+
+### Extracting columns
+dplyr enables users to extract column values as vectors. Users can choose by name or index.
+
+```{r, eval=TRUE}
+who_clean %>%
+    pull(count) %>%
+    head()
+```
+
+Users can extract a column as a tibble
+
+```{r, eval=TRUE}
+who_clean %>%
+    select(country)
+```
+
+dplyr also has helper functions that let you select by matching patterns:
+
+```{r, eval=TRUE}
+who_clean %>%
+    select(contains("iso"))
+```
+
+
+There are numerous `dplyr::select()` helper functions.
+
+Those include:
+
+```
+contains(match)
+ends_with(match)
+matches(match)
+num_range(prefix, range)
+one_of(...)
+starts_with()
+```
+
+Additional important operators for the `dplyr::select()` function are the `:` notation (e.g. `1:3`; integers 1 through 3) or `-` (e.g.`-age`; would include all columns except age).
+
+### Mutating new variables with dplyr
+Making new variables is one of the most useful features of dplyr. You can apply vectorized functions to columns as long as the output will return a vector the same length as the input.
+
+```{r, eval=TRUE}
+who_clean %>%
+    slice(1:5) %>%
+    mutate(adjusted_count=count+10)
+```
+
+Useful things you may do with mutate:  
+
+  * `dplyr::if_else()`  
+  * `dplyr::case_when()`  
+ 
+If else says, if you meet the logical expression (gender == "m) is TRUE, then relabel gender to "male" and if not, relabel gender to "female"
+```{r, eval=TRUE}
+who_clean %>%
+     mutate(gender=if_else(gender=="m", "male", "female"))
+```
+
+
+
+`case_when()` allows you to explicitly state each condition. Here diagnosis can either be relapse, negative pulmonary smear, negative pulmonary smear, or extrapulmonary, and we explicitly describe each of those with `case_when()`.
+
+
+```{r, eval=TRUE}
+who_clean %>%
+     mutate(
+         gender=if_else(gender == "m", "male", "female"),
+         diagnosis=case_when(
+             diagnosis=="rel" ~ "relapse",
+             diagnosis=="sn" ~ "negative pulmonary smear",
+             diagnosis=="sp" ~ "positive pulmonary smear",
+             diagnosis=="ep" ~ "extrapulmonary"
+         )
+     )
+```
+
+### Renaming columns with dplyr
+Often you need to change the names of your columns for whatever reason -- there is the function `dplyr::rename()` that can assist you with that.
+
+
+```{r, eval=TRUE}
+who_clean %>%
+     rename(country_iso3=iso3)
+```
+
+### Combining tables with dplyr
+Remember that population dataset we were supposed to use? We can now join it back to the WHO dataset using `left_join()`.
+
+```{r, eval=TRUE}
+population %>%
+    head()
+
+who_clean %>%
+    left_join(population)
+```
+
+Joins are extremely powerful and one of the most useful things you can do with dplyr. There are several other "mutating joins" that join one table to columns from another, matchin rows that they correspond to. Those functions are:
+
+```{r}
+left_join(x,y) # Join matching values from y to x
+right_join(x, y) # Join matching values from x to y
+inner_join(x, y) # Join data. Retain only rows with matches.
+full_join(x, y) # Join data. Retain all values, all rows.
+```
+
+An important argument in these functions (not displayed above, but ?left_join to see) is `by`.   
+
+`by = c("col1", "col2")` - specify one or more common columns to match on. 
+i.e. `left_join(x, y, b=”A”)`  
+
+`by=c("col1"="col2")` - use a named vector to match on columns that have different names in each table. i.e. `left_join(x,y, by=c("C"="D"))`  
+
+# Reshaping your data with tidyr
+The package tidyr is meant to tidy your data. Therefore its based on the princples of tidy data, which are:  
+
+1. Every column is a variable.  
+2. Every row is an observation.  
+3. Every cell is a single value.   
+
+Key package features:   
+
+* Reshape data  
+* Split cells    
+* Handle missing values  
+* Expand tables  
+
+## Pivot longer
+Recall how we had secretly pre-processed the `who` data to `who_clean`? Now we will show you how using `pivot_longer`.
+
+```{r, eval=TRUE}
+who %>% 
+     pivot_longer(
+         cols = new_sp_m014:newrel_f65,
+         names_to = c("diagnosis", "gender", "age"),
+         names_pattern = "new_?(.*)_(.)(.*)",
+         values_to = "count"
+     ) 
+```
+
+The crazy thing in the `names_pattern` argument will be talked about tomorrow. It's called a regular expression and is a pattern matching syntax that enables users to capture patterns. 
+
+```{r, eval=TRUE}
+dim(who)
+dim(who_clean)
+```
+
+See how we make the data 'longer'? 
+
+## Handle msising values (NA) with tidyr
+
+See how we have NAs in all the counts? Likely the data is there but data wasn't reported. We can drop the NAs using `tidyr::drop_na()`
+
+```{r, eval=TRUE}
+(who_clean <- who %>% 
+     pivot_longer(
+         cols = new_sp_m014:newrel_f65,
+         names_to = c("diagnosis", "gender", "age"),
+         names_pattern = "new_?(.*)_(.)(.*)",
+         values_to = "count"
+         ) %>%
+     drop_na(count))
+```
+
+The extra parentheses surrounding the expression above is so we print the output in which we are assigning the `pivot_longer` R expression to the variable `who_clean`.
+
+## Making data wider with tidyr
+Perhaps the next example doesn't necessarily follow tidy principles, but making your data wide may be a necessary pre-processing step (building a model matrix, visualization, etc.) 
+
+Say you would like to see all of the counts by years as separate columns, you can use `pivot_wider()`
+
+```{r, eval=TRUE}
+who_clean %>%
+     pivot_wider(
+         names_from=year,
+         values_from=count
+     )
+```
+
+## Split or combine cell functions
+
+Use these functions to split or combine cells into individual isolated values.
+
+You can join two columns using `unite`
+
+```{r, eval=TRUE}
+(who_united <- who_clean %>% 
+     unite(col=year_diagnosis,
+           c("year", "diagnosis"),
+           sep="_"))
+```
+
+You can split one column into two by a pattern or delimiter.
+
+```{r, eval=TRUE}
+(who_sep <- who_united %>%
+     separate(col=year_diagnosis,
+              into=c("year", "diagnosis"),
+              sep="_"))
+```
+
+
+You can separate a delimiter in a single cell into multiple rows.
+
+```{r, eval=TRUE}
+(who_sep_row <- who_united %>%
+         separate_rows(year_diagnosis, sep="_"))
+```
+
+## Expand tables with tidyr
+
+Users can create a new tibble with all possible combinations of the value of the variables listed in ...
+
+```{r}
+who_clean %>%
+     expand(country, diagnosis)
+```
+
+Or you can fill in the missing values using `tidyr::complete()`, which adds missing combinations of the values for the variables listed in the data to the data.
+
+# Import data using readr
+readr is a powerful package that is more efficient and explicit than the base R read functions. 
+
+You can load in tabular and non-tabular data.
+
+## Reading in tabular data
+
+The main functions share common arguments
+
+```{r, eval=FALSE}
+# Comma delimited file
+read_csv("file.csv")
+# Semi-colon delimited file
+read_csv2("file2.csv")
+# User specified Delimited File (this example, here pipe delimited)
+read_delim("file.txt", delim="|")
+# fixed width file
+read_fwf("file.fwf", col_positions=c(1,3,5)
+# tab delimited files
+read_tsv("file.tsv")
+```
+
+## Reading in non-tabular data with readr
+
+You can also load non tabular data into R, perhaps because you want to read a file in chunks or line by line for memory efficiency reasons.
+
+```{r}
+# Read a file into a single string
+read_file(file)
+# Read each line into its own string
+read_lines(file, skip=0, n_max=-1L, na=character())
+# Read Apache style log files
+read_log(file)
+# Read a file into a raw vector
+read_file_raw(file)
+# Read each line into a raw vector
+read_lines_raw(file)
+```
+
+
+Useful arguments in readr
+
+```{r, eval=TRUE}
+
+# Example file
+write_file("a,b,c\n1,2,3\n4,5,NA", "file.csv")
+f <- "file.csv"
+# No header
+read_csv(f, col_names=FALSE)
+# Provide header
+read_csv(f, col_names=c("x", "y", "z"))
+# Skip lines
+read_csv(f, skip=1)
+# Read in a subset
+read_csv(f, n_max=1)
+# Define Missing values
+read_csv(f, na=c("1", "."))
+```
+
+## Saving files using readr
+Similarly, users can save files to disk using R. Save x, an R object, to path, a file path as:  
+```{r}
+# Comma delimited file
+write_csv(x, path, na="NA", append=FALSE, col_names=!append)
+# File with arbitrary delimiter
+write_delim(x, path, delim="", na="NA", append=FALSE, col_names=!append)
+#CSV for excel
+write_excel_csv(x, path, na="NA", append=FALSE, col_names=!append)
+# String to file
+write_file(x, path, append=FALSE)
+# String vector to file, one element per line
+write_lines(x, path, na="NA", append=FALSE)
+# Object to RDS
+save_rds(x, path, compression=c("none", "gz", "bz2", "xz"), ...)
+# Tab delimited files
+write_tsv(x, path, na="NA", append=FALSE, col_names=!append)
+
+# example
+who_clean %>%
+    write_csv("/path/to/dir/who_clean.csv")
+```
+
+## Importing other types of data
+There are many other types of data that can be loaded into R. It's actually quite amazing. You can use SAS, SQL, XML, HTML, APIs, you name it.
+
+Try one of the follopwing packages:  
+
+* haven - SAS, SPSS, Stat files  
+* readxl - Excel files (.xlsx and .xls)  
+* DBI - databases (SQL, Postgres)  
+* jsonlite - json files  
+* xml2 - XML files  
+* httr - connect iwth web API and curl commands  
+* rvest - for scraping HTML (web scraping)  
+
+
+That's all for today! 
+
+# Exercises
+
+1. Read in `who_clean.csv`. Replace `xxx` with the proper `readr` function.
+
+```{r}
+who_clean <- read_____("who_clean.csv")
+```
+
+2. Filter for the year 1997 and diagnosis `sp`
+
+```{r}
+who_clean %>%
+    filter(_____==______)
+```
+
+3. Create a new column that relabels `age` with hyphens separating the numbers
+
+```{r}
+who_clean %>%
+    mutate(age_groups=case_when(
+     age == "014" ~ "0-14",
+     age == "1524" ~ "____",
+     age == "2534" ~ "____",
+     age == "3544" ~ "____",
+     age == "4554" ~ "____",
+     age == "5564" ~ "____"
+    ))
+```
+
+4. Join the populations table and compute the proportion of case counts by the total population of that country.
+
+```{r}
+who_props <- who_clean %>%
+    left_join(_________) %>%
+    mutate(prop=____/____)
+
+who_props
+```
+
+5. Save the file to disk as csv
+
+```{r}
+who_props %>%
+    write_csv("________")
